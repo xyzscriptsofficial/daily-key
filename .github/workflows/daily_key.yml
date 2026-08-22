@@ -1,0 +1,38 @@
+name: Daily Key Auto-Updater
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-key:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute Key
+        run: |
+          python -c "
+          import datetime
+          now = datetime.datetime.utcnow()
+          day, month, year = now.day, now.month, now.year
+          seed = (day * 37) + (month * 379) + (year * 1013)
+          salt = 'XYZ_SUPER_SECRET_SALT_2026'
+          h = 0
+          for ch in salt:
+              h = (h * 31 + ord(ch) + seed) % 899999
+          h += 100000
+          with open('key.txt', 'w') as f:
+              f.write(f'XYZ-{h}-{day:02d}{month:02d}\n')
+          "
+
+      - name: Commit and Push
+        run: |
+          git config --global user.name 'XYZ-Key-Bot'
+          git config --global user.email 'bot@xyzscripts.local'
+          git add key.txt
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update daily key" && git push)
